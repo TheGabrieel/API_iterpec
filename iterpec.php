@@ -138,24 +138,22 @@
 
 
 <?php
-// Função genérica para realizar requisições à API Iterpec com JSON 
+//realizar requisições à API Iterpec com JSON usando wp_remote_post
 function apiRequest($url, $data) {
-    $curl = curl_init($url);
-    curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($curl, CURLOPT_HTTPHEADER, array(
-        'Content-Type: application/json'
+    $response = wp_remote_post($url, array(
+        'method'    => 'POST',
+        'headers'   => array(
+            'Content-Type' => 'application/json',
+        ),
+        'body'      => wp_json_encode($data),
+        'timeout'   => 60,
     ));
-    curl_setopt($curl, CURLOPT_POST, true);
-    curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($data));
 
-    $result = curl_exec($curl);
-
-    if (curl_errno($curl)) {
-        return 'Erro ao realizar a requisição: ' . curl_error($curl);
+    if (is_wp_error($response)) {
+        return 'Erro ao realizar a requisição: ' . $response->get_error_message();
     }
 
-    curl_close($curl);
-    return json_decode($result, true);
+    return json_decode(wp_remote_retrieve_body($response), true);
 }
 
 // Função para pesquisa de hotéis e salvar como posts personalizados no WordPress
@@ -184,20 +182,16 @@ function hotelSearch($data) {
     return $response;
 }
 
-// Função para obter condições de reserva de hotel
+//obter condições de reserva de hotel
 function getBookingConditions($data) {
     $url = 'http://iterpec.cangooroo.net/API/REST/hotel.svc/GetBookingConditions';
-    $response = apiRequest($url, $data);
-
-    return $response;
+    return apiRequest($url, $data);
 }
 
-// Função para confirmar reserva
+//confirmar reserva
 function doBooking($data) {
     $url = 'http://iterpec.cangooroo.net/API/REST/Hotel.svc/DoBooking';
-    $response = apiRequest($url, $data);
-
-    return $response;
+    return apiRequest($url, $data);
 }
 
 // Lógica para processar requisições de acordo com a ação específica
