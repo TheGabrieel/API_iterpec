@@ -98,9 +98,8 @@
     </div>
 </body>
 </html>
+
 <?php
-
-
 // Função genérica para realizar requisições à API Iterpec com JSON usando wp_remote_post
 function apiRequest($url, $data) {
     $response = wp_remote_post($url, array(
@@ -129,6 +128,33 @@ function rentACarSearch($data) {
 function getRentACarBookingConditions($data) {
     $url = 'https://ws-iterpec.cangooroo.net/API/REST/RentACar.svc/getBookingConditions';
     return apiRequest($url, $data);
+}
+
+// Função para confirmar reserva de aluguel de carros
+function doCarBooking($data) {
+    $url = 'https://ws-iterpec.cangooroo.net/API/REST/RentACar.svc/DoBooking';
+    return apiRequest($url, $data);
+}
+
+// Função para salvar os resultados da pesquisa de carros no banco de dados do WordPress
+function saveCarSearchResults($results) {
+    foreach ($results['Vehicles'] as $vehicle) {
+        // Inserir um novo post personalizado para o veículo
+        $post_id = wp_insert_post(array(
+            'post_title'   => 'Aluguel de Carro: ' . $vehicle['VehicleModel'],
+            'post_content' => 'Informações sobre o carro: ' . $vehicle['VehicleDescription'],
+            'post_type'    => 'rent_a_car',
+            'post_status'  => 'publish',
+        ));
+
+        // Atualizar meta informações do veículo
+        update_post_meta($post_id, 'price', $vehicle['Price']);
+        update_post_meta($post_id, 'currency', $vehicle['Currency']);
+        update_post_meta($post_id, 'pickup_date', $_POST['pickup_date']);
+        update_post_meta($post_id, 'dropoff_date', $_POST['dropoff_date']);
+        update_post_meta($post_id, 'pickup_location', $_POST['pickup_location']);
+        update_post_meta($post_id, 'dropoff_location', $_POST['dropoff_location']);
+    }
 }
 
 // Lógica para processar as requisições de acordo com a ação
@@ -161,6 +187,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $result = rentACarSearch($searchData);
 
+        if ($result && isset($result['Vehicles'])) {
+            saveCarSearchResults($result);
+        }
+
         echo "<h2>Resultado da Pesquisa de Aluguel de Carros:</h2>";
         echo "<pre>";
         print_r($result);
@@ -177,6 +207,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $result = getRentACarBookingConditions($data);
 
         echo "<h2>Condições de Reserva (Aluguel de Carro):</h2>";
+        echo "<pre>";
+        print_r($result);
+        echo "</pre>";
+
+    } elseif (isset($_GET['action']) && $_GET['action'] == 'doBooking') {
+        // Dados para confirmar a reserva de carro
+        $data = array(
+            "Credential" => $credential,
+            "CarId" => $_POST['car_id'],
+            "Token" => $_POST['token'],
+            "PickupDate" => $_POST['pickup_date'],
+            "DropoffDate" => $_POST['dropoff_date']
+        );
+
+        $result = doCarBooking($data);
+
+        echo "<h2>Confirmação de Reserva (Aluguel de Carro):</h2>";
         echo "<pre>";
         print_r($result);
         echo "</pre>";
